@@ -2,6 +2,9 @@
                               CS51 Lab 13
                    Procedural Programming and Loops
  *)
+(*
+                               SOLUTION
+ *)
 
 (*
 Objective:
@@ -54,7 +57,7 @@ the partial results, is a common one for converting functions to
 tail-recursive form.
 
 ......................................................................
-Exercise 1: Tail-recursive sum 
+Exercise 1: Tail-recursive sum
 
 Rewrite the sum function to be tail recursive. (As usual, for this and
 succeeding exercises, you shouldn't feel beholden to how the
@@ -63,8 +66,12 @@ might want to add a "rec", or use a different argument list, or no
 argument list at all but binding to an anonymous function instead.)
 ....................................................................*)
 
-let sum _ =
-  failwith "sum not implemented" ;;
+let sum (lst : int list) : int =
+  let rec sum_tr lst acc =
+    match lst with
+    | [] -> acc
+    | hd :: tl -> sum_tr tl (hd + acc) in
+  sum_tr lst 0 ;;
 
 (*....................................................................
 Exercise 2: Write a tail-recursive function that finds the product of
@@ -84,16 +91,50 @@ ordering of the lists.
    # prods [1; 2; 3] [1; 2; 3] ;;
    -: int list = [1; 4; 9] *)
 
-let prods _ =
-  failwith "prods not implemented" ;;
+let prods (xs : int list) (ys : int list) : int list =
+  let rec prods_tr xs ys acc =
+    match xs, ys with
+    | [], [] -> acc
+    | xhd :: xtl, yhd :: ytl ->
+       prods_tr xtl ytl (xhd * yhd :: acc)
+    | [], _
+    | _, [] ->
+       raise (Failure "Lists must be of same length") in
+  List.rev (prods_tr xs ys []) ;;
 
 (*....................................................................
 Exercise 3: Modify your prods function to use option types to deal
 with lists of different lengths.
 ....................................................................*)
 
-let prods_opt _ =
-  failwith "prods not implemented" ;;
+(* In this version, we also reverse the list within the auxiliary
+   function. *)
+let prods_opt (xs : int list) (ys : int list) : int list option =
+  let rec prods_tr xs ys acc =
+    match xs, ys with
+    | [], [] -> Some (List.rev acc)
+    | [], _
+    | _, [] -> None
+    | xhd :: xtl, yhd :: ytl ->
+       prods_tr xtl ytl (xhd * yhd :: acc) in
+  prods_tr xs ys [];;
+
+(* Here is a non-tail-recursive implementation of prods_opt:
+
+let rec prods_opt (xs : int list) (ys : int list) : int list option =
+  match xs, ys with
+  | [], [] -> Some []
+  | [], _
+  | _, [] -> None
+  | xhd :: xtl, yhd :: ytl ->
+      match prods_opt xtl ytl with
+      | None -> None
+      | Some lst -> Some (xhd * yhd :: lst)
+
+  Which version of prods_opt is more readable? Which of the
+  tail-recursive or non-tail-recursive prods_opt would you consider
+  better design?
+ *)
 
 (*....................................................................
 Exercise 4: Finally, combine your sum and prods functions to create a
@@ -102,8 +143,17 @@ of corresponding elements of the lists). (For reference, you
 implemented dot product in lab 2.)
 ....................................................................*)
 
-let dotprod _ =
-  failwith "dotprod not implemented" ;;
+let dotprod (xs : int list) (ys : int list) : int =
+  sum (prods xs ys) ;;
+
+(* We've implemented dotprod with no recursion at all. So in what
+   sense is it "tail-recursive"? The operation over the elements of
+   the lists -- whether by iteration or recursion -- is hidden inside
+   the functions dotprod calls. Thus, those functions determine
+   whether the implementation is iterative or recursive or
+   tail-recursive. In this case, since the implementations of sum and
+   dotprods are tail-recursive, dotprod inherits the advantages of
+   that approach, in particular, its space efficiency. *)
 
 (*====================================================================
 Part 2: Loops
@@ -128,11 +178,31 @@ For example, we expect the following behavior:
   - : int list = [1; 3; 5; 7]
 ....................................................................*)
 
+(* There are many ways to solve this problem with while or for
+   loops. We've provided a typical example. *)
+
 let odd_while (x : int) : int list =
-  failwith "oddwhile not implemented" ;;
+  let counter = ref 1 in
+  let lst_ref = ref [] in
+  while !counter <= x do
+    lst_ref := !counter :: !lst_ref;
+    counter := !counter + 2
+  done;
+  List.rev !lst_ref ;;
 
 let odd_for (x : int) : int list =
-  failwith "oddfor not implemented" ;;
+  let lst_ref = ref [] in
+  for i = 1 to (x + 1) / 2 do
+    lst_ref := (i - 1) * 2 + 1 :: !lst_ref
+  done;
+  List.rev (!lst_ref) ;;
+
+(* For reference, here's a functional version using init to build a
+list of the integers and filter to select the odd ones: *)
+
+let odd_func (limit : int) : int list =
+  List.init limit succ
+  |> List.filter (fun x -> x mod 2 <> 0) ;;
 
 (* Here is the length function implemented using a while loop, as in
 the reading:
@@ -156,7 +226,18 @@ while loop.
 ....................................................................*)
 
 let sum_iter (lst : int list) : int =
-  failwith "sum_iter not implemented" ;;
+  let sum = ref 0 in
+  let lstr = ref lst in
+  while !lstr <> [] do           (* while any elements remain... *)
+    sum := List.hd !lstr + !sum; (*   add to running sum, and *)
+    lstr := List.tl !lstr        (*   drop the head element *)
+  done;
+  !sum ;;
+
+(* Note: We normally discourage the use of List.hd and List.tl. In
+   this case, the while condition checks for a nonempty list, thus
+   ensuring that our calls to List.hd and List.tl will never hit the
+   empty list and raise unanticipated errors. *)
 
 (*....................................................................
 Exercise 7: Rewrite the recursive prods function from above using a
@@ -165,7 +246,16 @@ have different lengths.
 ....................................................................*)
 
 let prods_iter (xs : int list) (ys : int list) : int list =
-  failwith "prods_iter not implemented" ;;
+  let a = ref xs in
+  let b = ref ys in
+  let result = ref [] in
+  while (!a <> []) && (!b <> []) do
+    result := ((List.hd (!a)) * (List.hd (!b))) :: (!result);
+    a := List.tl (!a);
+    b := List.tl (!b);
+  done;
+  if !a = [] && !b = [] then List.rev (!result)
+  else failwith "prods_iter: lists of different length" ;;
 
 (* You've now implemented prods a few times, so think about which of
 them you think is the most efficient, and which of them required the
@@ -188,7 +278,19 @@ List.rev, and you've likely used it in previous exercises.)
 ....................................................................*)
 
 let reverse (lst : 'a list) : 'a list =
-  failwith "reverse not implemented" ;;
+  let a =  ref lst in
+  let result = ref [] in
+  while !a <> [] do
+    result := List.hd !a :: !result;
+    a := List.tl !a
+  done;
+  !result ;;
+
+(* The above code solves the stated problem, but note that this, and
+   many other calculations, can be solved much more quickly and with
+   much more readable code when using purely functional (and thus,
+   recursive) programming. The focus on procedural programming here is
+   important, but so is knowing when and when not to use it. *)
 
 (* As you've observed in this lab, procedural programming can be
 useful, but most problems can and should be solved with functional
@@ -217,5 +319,38 @@ than 23.
 
 ....................................................................*)
 
+(* Implementing in the loop-based procedural style: *)
+
 let mario (height : int) : unit =
-  failwith "mario not implemented" ;;
+  if height > 23 then
+    raise (Invalid_argument "This pyramid is way too high for Mario")
+  else
+    (* for height lines *)
+    for line = 0 to (height - 1) do
+      (* print height - line - 1 spaces *)
+      for spaces = 1 to (height - line - 1) do
+        print_string " ";
+      done;
+      (* and line + 2 hashes *)
+      for hashes = 1 to (line + 2) do
+        print_string "#";
+      done;
+      (* and a newline *)
+      print_newline ();
+    done ;;
+
+(* Of course, just because you *can* do this with loops doesn't mean
+   it's the most elegant way. Here's an alternative implementation
+   avoiding imperative programming and side effects (except for the
+   unavoidable side effect of printing). *)
+
+let mario (height : int) : unit =
+  if height > 23 then
+    raise (Invalid_argument "This pyramid is way too high for Mario")
+  else
+    (* generate a list containing each line as a string *)
+    List.init (height)
+              (fun line ->   (String.make (height - line - 1) ' ')
+                           ^ (String.make (line + 2)          '#'))
+    (* print each line *)
+    |> List.iter print_endline ;;
